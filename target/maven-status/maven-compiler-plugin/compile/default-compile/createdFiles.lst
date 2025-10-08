@@ -8,7 +8,9 @@ com/welfareconnect/model/ApplicationDAO.class
 com/welfareconnect/view/customcomponents/SchemeCellRenderer.class
 com/welfareconnect/view/AdminDashboardPanel.class
 com/welfareconnect/model/ApplicationDAO$MonthlyStatus.class
+com/welfareconnect/view/AdminDashboardPanel$2.class
 com/welfareconnect/view/customcomponents/SchemeCardPanel.class
+com/welfareconnect/view/CitizenDashboardPanel$3.class
 com/welfareconnect/model/ApplicationDAO$SchemeCount.class
 com/welfareconnect/view/RegistrationDialog.class
 com/welfareconnect/view/ChangePasswordDialog.class
@@ -20,6 +22,7 @@ com/welfareconnect/view/LoginFrame.class
 com/welfareconnect/view/LoginFrame$AnimatedGradientPanel.class
 com/welfareconnect/model/DocumentDAO.class
 com/welfareconnect/view/AdminDashboardPanel$1.class
+com/welfareconnect/view/OfficerDashboardPanel$2.class
 com/welfareconnect/util/FileStorage.class
 com/welfareconnect/controller/AuthController.class
 com/welfareconnect/view/ForgotPasswordDialog.class
@@ -28,6 +31,7 @@ com/welfareconnect/view/LoginFrame$2.class
 com/welfareconnect/view/AppFrame.class
 com/welfareconnect/util/AccentTheme.class
 com/welfareconnect/util/PasswordUtil.class
+com/welfareconnect/view/CitizenDashboardPanel$2.class
 com/welfareconnect/App.class
 com/welfareconnect/model/SchemeDAO.class
 com/welfareconnect/model/Application.class

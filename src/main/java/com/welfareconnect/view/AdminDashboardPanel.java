@@ -1,6 +1,7 @@
 package com.welfareconnect.view;
 
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -11,9 +12,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.JButton;
-import javax.swing.JCheckBox; // <--- THIS IS THE MISSING IMPORT
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -23,6 +25,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
@@ -37,12 +40,16 @@ import com.welfareconnect.model.Scheme;
 import com.welfareconnect.model.SchemeDAO;
 
 public class AdminDashboardPanel extends JPanel {
-    // ... the rest of the file is exactly the same as the previous version ...
     private final DefaultTableModel schemeModel = new DefaultTableModel(new String[]{"ID", "Name", "Category", "Active"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) { return false; }
     };
     private final JTable schemeTable = new JTable(schemeModel);
+
+    // NEW: Fields for the analytics loading mechanism
+    private final JPanel analyticsContentPanel = new JPanel(new CardLayout());
+    private final DefaultPieDataset pieData = new DefaultPieDataset();
+    private final DefaultCategoryDataset barData = new DefaultCategoryDataset();
 
     public AdminDashboardPanel() {
         setLayout(new BorderLayout());
@@ -80,64 +87,80 @@ public class AdminDashboardPanel extends JPanel {
         filters.add(refresh);
         analytics.add(filters, BorderLayout.NORTH);
 
-        DefaultPieDataset pieData = new DefaultPieDataset();
+        // Create the loading panel for analytics
+        JPanel analyticsLoadingPanel = new JPanel(new GridBagLayout());
+        analyticsLoadingPanel.add(new JLabel("Generating reports, please wait..."));
+
+        // Create the main charts panel
         var pieChart = ChartFactory.createPieChart("Applications by Scheme", pieData, true, true, false);
         ((PiePlot) pieChart.getPlot()).setSimpleLabels(true);
         ChartPanel piePanel = new ChartPanel(pieChart);
-
-        DefaultCategoryDataset barData = new DefaultCategoryDataset();
         var barChart = ChartFactory.createBarChart("Approved vs Rejected", "Month", "Count", barData);
         ChartPanel barPanel = new ChartPanel(barChart);
+        JPanel chartsPanel = new JPanel(new GridLayout(1, 2, 10, 0));
+        chartsPanel.add(piePanel);
+        chartsPanel.add(barPanel);
         
-        piePanel.setLayout(new GridBagLayout());
-        barPanel.setLayout(new GridBagLayout());
+        // Use CardLayout to manage showing/hiding the loading panel
+        analyticsContentPanel.add(chartsPanel, "main");
+        analyticsContentPanel.add(analyticsLoadingPanel, "loading");
+        analytics.add(analyticsContentPanel, BorderLayout.CENTER);
+
+        refresh.addActionListener(e -> loadAnalytics(start.getText().trim(), end.getText().trim()));
         
-        JPanel charts = new JPanel(new GridLayout(1, 2, 10, 0));
-        charts.add(piePanel);
-        charts.add(barPanel);
-        analytics.add(charts, BorderLayout.CENTER);
-
-        refresh.addActionListener(e -> loadAnalytics(pieData, barData, start.getText().trim(), end.getText().trim(), piePanel, barPanel));
-        loadAnalytics(pieData, barData, start.getText().trim(), end.getText().trim(), piePanel, barPanel);
-
         tabs.addTab("Schemes", schemes);
         tabs.addTab("Users", new JPanel());
         tabs.addTab("Analytics", analytics);
 
         add(tabs, BorderLayout.CENTER);
+
+        // Initial data load
         reloadSchemes();
+        loadAnalytics(start.getText().trim(), end.getText().trim());
     }
     
-    private void loadAnalytics(DefaultPieDataset pie, DefaultCategoryDataset bar, String start, String end, ChartPanel... panels) {
-        try {
-            pie.clear();
-            List<ApplicationDAO.SchemeCount> sc = new ApplicationDAO().applicationsByScheme(start, end);
-            for (ApplicationDAO.SchemeCount s : sc) pie.setValue(s.schemeName, s.count);
+    // UPDATED: This method now uses SwingWorker
+    private void loadAnalytics(String start, String end) {
+        CardLayout cl = (CardLayout) (analyticsContentPanel.getLayout());
+        cl.show(analyticsContentPanel, "loading");
 
-            bar.clear();
-            List<ApplicationDAO.MonthlyStatus> ms = new ApplicationDAO().monthlyApprovedRejected(start, end);
-            for (ApplicationDAO.MonthlyStatus m : ms) {
-                bar.addValue(m.approved, "Approved", m.yearMonth);
-                bar.addValue(m.rejected, "Rejected", m.yearMonth);
+        SwingWorker<Map<String, List<?>>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Map<String, List<?>> doInBackground() throws Exception {
+                // Fetch both datasets in the background
+                List<ApplicationDAO.SchemeCount> schemeCounts = new ApplicationDAO().applicationsByScheme(start, end);
+                List<ApplicationDAO.MonthlyStatus> monthlyStatuses = new ApplicationDAO().monthlyApprovedRejected(start, end);
+                return Map.of("pieData", schemeCounts, "barData", monthlyStatuses);
             }
 
-            for(ChartPanel p : panels) {
-                p.removeAll();
-                boolean isPieEmpty = p.getChart().getPlot() instanceof PiePlot && pie.getItemCount() == 0;
-                boolean isBarEmpty = !(p.getChart().getPlot() instanceof PiePlot) && bar.getColumnCount() == 0;
-                if (isPieEmpty || isBarEmpty) {
-                     p.add(new JLabel("No data for the selected period."));
+            @Override
+            @SuppressWarnings("unchecked") // Safe cast due to our map structure
+            protected void done() {
+                try {
+                    Map<String, List<?>> results = get();
+                    List<ApplicationDAO.SchemeCount> schemeCounts = (List<ApplicationDAO.SchemeCount>) results.get("pieData");
+                    List<ApplicationDAO.MonthlyStatus> monthlyStatuses = (List<ApplicationDAO.MonthlyStatus>) results.get("barData");
+
+                    pieData.clear();
+                    for (ApplicationDAO.SchemeCount s : schemeCounts) pieData.setValue(s.schemeName, s.count);
+
+                    barData.clear();
+                    for (ApplicationDAO.MonthlyStatus m : monthlyStatuses) {
+                        barData.addValue(m.approved, "Approved", m.yearMonth);
+                        barData.addValue(m.rejected, "Rejected", m.yearMonth);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(AdminDashboardPanel.this, "Failed to load analytics: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    cl.show(analyticsContentPanel, "main"); // ALWAYS switch back to the charts
                 }
-                p.revalidate();
-                p.repaint();
             }
-
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        };
+        worker.execute();
     }
 
     private void reloadSchemes() {
+        // This could also be put in a SwingWorker if loading schemes is slow
         schemeModel.setRowCount(0);
         try {
             List<Scheme> items = new SchemeDAO().listAll();
