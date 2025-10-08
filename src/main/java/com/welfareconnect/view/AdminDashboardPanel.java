@@ -7,16 +7,12 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -38,60 +34,87 @@ import org.jfree.data.general.DefaultPieDataset;
 import com.welfareconnect.model.ApplicationDAO;
 import com.welfareconnect.model.Scheme;
 import com.welfareconnect.model.SchemeDAO;
+import com.welfareconnect.model.User;
+import com.welfareconnect.model.UserDAO;
 
 public class AdminDashboardPanel extends JPanel {
+    // Fields for JTabbedPane (promoted to a field)
+    private final JTabbedPane tabs = new JTabbedPane();
+
+    // Fields for Schemes Tab
     private final DefaultTableModel schemeModel = new DefaultTableModel(new String[]{"ID", "Name", "Category", "Active"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) { return false; }
     };
     private final JTable schemeTable = new JTable(schemeModel);
+    
+    // Fields for Users Tab
+    private final DefaultTableModel userModel = new DefaultTableModel(new String[]{"ID", "Name", "Identifier", "Role", "Status"}, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) { return false; }
+    };
+    private final JTable userTable = new JTable(userModel);
+    private final JButton changeRoleButton = new JButton("Change Role");
+    private final JButton toggleStatusButton = new JButton("Disable/Enable Account");
+    private final JPanel userContentPanel = new JPanel(new CardLayout());
 
-    // NEW: Fields for the analytics loading mechanism
+    // Fields for Analytics Tab
     private final JPanel analyticsContentPanel = new JPanel(new CardLayout());
     private final DefaultPieDataset pieData = new DefaultPieDataset();
     private final DefaultCategoryDataset barData = new DefaultCategoryDataset();
 
     public AdminDashboardPanel() {
         setLayout(new BorderLayout());
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setBorder(new EmptyBorder(5,5,5,5));
+        tabs.setBorder(new EmptyBorder(5, 5, 5, 5));
 
-        // --- Schemes CRUD Tab ---
-        JPanel schemes = new JPanel(new BorderLayout(0, 10));
-        schemes.add(new JScrollPane(schemeTable), BorderLayout.CENTER);
-        
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton add = new JButton("Add");
-        JButton edit = new JButton("Edit");
-        JButton del = new JButton("Delete");
-        JButton export = new JButton("Export to CSV");
-        actions.add(export);
-        actions.add(add);
-        actions.add(edit);
-        actions.add(del);
-        schemes.add(actions, BorderLayout.SOUTH);
+        // --- Schemes Tab ---
+        JPanel schemesPanel = new JPanel(new BorderLayout(0, 10));
+        schemesPanel.add(new JScrollPane(schemeTable), BorderLayout.CENTER);
+        JPanel schemeActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton addScheme = new JButton("Add");
+        JButton editScheme = new JButton("Edit");
+        JButton delScheme = new JButton("Delete");
+        schemeActions.add(addScheme);
+        schemeActions.add(editScheme);
+        schemeActions.add(delScheme);
+        schemesPanel.add(schemeActions, BorderLayout.SOUTH);
+        addScheme.addActionListener(e -> onAdd());
+        editScheme.addActionListener(e -> onEdit());
+        delScheme.addActionListener(e -> onDelete());
 
-        add.addActionListener(e -> onAdd());
-        edit.addActionListener(e -> onEdit());
-        del.addActionListener(e -> onDelete());
-        export.addActionListener(e -> onExport());
+        // --- Users Tab ---
+        JPanel usersPanel = new JPanel(new BorderLayout(0, 10));
+        JPanel userLoadingPanel = new JPanel(new GridBagLayout());
+        userLoadingPanel.add(new JLabel("Loading users..."));
+        userContentPanel.add(new JScrollPane(userTable), "main");
+        userContentPanel.add(userLoadingPanel, "loading");
+        usersPanel.add(userContentPanel, BorderLayout.CENTER);
+        JPanel userActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        userActions.add(changeRoleButton);
+        userActions.add(toggleStatusButton);
+        usersPanel.add(userActions, BorderLayout.SOUTH);
+        changeRoleButton.addActionListener(e -> onChangeRole());
+        toggleStatusButton.addActionListener(e -> onToggleStatus());
+        userTable.getSelectionModel().addListSelectionListener(e -> {
+            boolean isSelected = userTable.getSelectedRow() != -1;
+            changeRoleButton.setEnabled(isSelected);
+            toggleStatusButton.setEnabled(isSelected);
+        });
 
         // --- Analytics Tab ---
-        JPanel analytics = new JPanel(new BorderLayout());
+        JPanel analyticsPanel = new JPanel(new BorderLayout());
         JPanel filters = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JTextField start = new JTextField(LocalDate.now().minusMonths(3).toString(), 10);
         JTextField end = new JTextField(LocalDate.now().toString(), 10);
         JButton refresh = new JButton("Refresh");
-        filters.add(new JLabel("Start Date (YYYY-MM-DD)")); filters.add(start);
-        filters.add(new JLabel("End Date")); filters.add(end);
+        filters.add(new JLabel("Start Date (YYYY-MM-DD)"));
+        filters.add(start);
+        filters.add(new JLabel("End Date"));
+        filters.add(end);
         filters.add(refresh);
-        analytics.add(filters, BorderLayout.NORTH);
-
-        // Create the loading panel for analytics
+        analyticsPanel.add(filters, BorderLayout.NORTH);
         JPanel analyticsLoadingPanel = new JPanel(new GridBagLayout());
         analyticsLoadingPanel.add(new JLabel("Generating reports, please wait..."));
-
-        // Create the main charts panel
         var pieChart = ChartFactory.createPieChart("Applications by Scheme", pieData, true, true, false);
         ((PiePlot) pieChart.getPlot()).setSimpleLabels(true);
         ChartPanel piePanel = new ChartPanel(pieChart);
@@ -100,50 +123,137 @@ public class AdminDashboardPanel extends JPanel {
         JPanel chartsPanel = new JPanel(new GridLayout(1, 2, 10, 0));
         chartsPanel.add(piePanel);
         chartsPanel.add(barPanel);
-        
-        // Use CardLayout to manage showing/hiding the loading panel
         analyticsContentPanel.add(chartsPanel, "main");
         analyticsContentPanel.add(analyticsLoadingPanel, "loading");
-        analytics.add(analyticsContentPanel, BorderLayout.CENTER);
-
+        analyticsPanel.add(analyticsContentPanel, BorderLayout.CENTER);
         refresh.addActionListener(e -> loadAnalytics(start.getText().trim(), end.getText().trim()));
         
-        tabs.addTab("Schemes", schemes);
-        tabs.addTab("Users", new JPanel());
-        tabs.addTab("Analytics", analytics);
+        // Add all tabs
+        tabs.addTab("Schemes", schemesPanel);
+        tabs.addTab("Users", usersPanel);
+        tabs.addTab("Analytics", analyticsPanel);
 
+        // Add listener to refresh data when a tab is selected
+        tabs.addChangeListener(e -> {
+            int selectedIndex = tabs.getSelectedIndex();
+            if (selectedIndex == 0) { // Schemes
+                reloadSchemes();
+            } else if (selectedIndex == 1) { // Users
+                reloadUsers();
+            } else if (selectedIndex == 2) { // Analytics
+                loadAnalytics(start.getText().trim(), end.getText().trim());
+            }
+        });
+        
         add(tabs, BorderLayout.CENTER);
+        
+        // Initial state
+        changeRoleButton.setEnabled(false);
+        toggleStatusButton.setEnabled(false);
 
         // Initial data load
         reloadSchemes();
+        reloadUsers();
         loadAnalytics(start.getText().trim(), end.getText().trim());
     }
     
-    // UPDATED: This method now uses SwingWorker
+    private void reloadUsers() {
+        CardLayout cl = (CardLayout) userContentPanel.getLayout();
+        cl.show(userContentPanel, "loading");
+
+        SwingWorker<List<User>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<User> doInBackground() throws Exception {
+                return new UserDAO().getAllUsers();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    userModel.setRowCount(0);
+                    for (User user : get()) {
+                        userModel.addRow(new Object[]{
+                            user.getId(),
+                            user.getName(),
+                            user.getIdentifier(),
+                            user.getRole(),
+                            user.isActive() ? "Active" : "Disabled"
+                        });
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(AdminDashboardPanel.this, "Failed to load users: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    cl.show(userContentPanel, "main");
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void onChangeRole() {
+        int selectedRow = userTable.getSelectedRow();
+        if (selectedRow == -1) return;
+
+        int userId = (int) userModel.getValueAt(selectedRow, 0);
+        String currentRole = (String) userModel.getValueAt(selectedRow, 3);
+        
+        String[] roles = {"Citizen", "Officer", "Admin"};
+        String newRole = (String) JOptionPane.showInputDialog(this, "Select new role:", "Change User Role",
+                JOptionPane.PLAIN_MESSAGE, null, roles, currentRole);
+
+        if (newRole != null && !newRole.equals(currentRole)) {
+            try {
+                if (new UserDAO().updateUserRole(userId, newRole)) {
+                    JOptionPane.showMessageDialog(this, "User role updated successfully.");
+                    reloadUsers();
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Failed to update role: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void onToggleStatus() {
+        int selectedRow = userTable.getSelectedRow();
+        if (selectedRow == -1) return;
+
+        int userId = (int) userModel.getValueAt(selectedRow, 0);
+        String currentStatus = (String) userModel.getValueAt(selectedRow, 4);
+        boolean newStatus = !currentStatus.equals("Active");
+        String action = newStatus ? "Enable" : "Disable";
+
+        int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to " + action + " this account?", "Confirm Status Change", JOptionPane.YES_NO_OPTION);
+        if (confirm != JOptionPane.YES_OPTION) return;
+
+        try {
+            if (new UserDAO().updateUserStatus(userId, newStatus)) {
+                JOptionPane.showMessageDialog(this, "User account has been " + (newStatus ? "enabled." : "disabled."));
+                reloadUsers();
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Failed to update status: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void loadAnalytics(String start, String end) {
         CardLayout cl = (CardLayout) (analyticsContentPanel.getLayout());
         cl.show(analyticsContentPanel, "loading");
-
         SwingWorker<Map<String, List<?>>, Void> worker = new SwingWorker<>() {
             @Override
             protected Map<String, List<?>> doInBackground() throws Exception {
-                // Fetch both datasets in the background
                 List<ApplicationDAO.SchemeCount> schemeCounts = new ApplicationDAO().applicationsByScheme(start, end);
                 List<ApplicationDAO.MonthlyStatus> monthlyStatuses = new ApplicationDAO().monthlyApprovedRejected(start, end);
                 return Map.of("pieData", schemeCounts, "barData", monthlyStatuses);
             }
-
             @Override
-            @SuppressWarnings("unchecked") // Safe cast due to our map structure
+            @SuppressWarnings("unchecked")
             protected void done() {
                 try {
                     Map<String, List<?>> results = get();
                     List<ApplicationDAO.SchemeCount> schemeCounts = (List<ApplicationDAO.SchemeCount>) results.get("pieData");
                     List<ApplicationDAO.MonthlyStatus> monthlyStatuses = (List<ApplicationDAO.MonthlyStatus>) results.get("barData");
-
                     pieData.clear();
                     for (ApplicationDAO.SchemeCount s : schemeCounts) pieData.setValue(s.schemeName, s.count);
-
                     barData.clear();
                     for (ApplicationDAO.MonthlyStatus m : monthlyStatuses) {
                         barData.addValue(m.approved, "Approved", m.yearMonth);
@@ -152,7 +262,7 @@ public class AdminDashboardPanel extends JPanel {
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(AdminDashboardPanel.this, "Failed to load analytics: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 } finally {
-                    cl.show(analyticsContentPanel, "main"); // ALWAYS switch back to the charts
+                    cl.show(analyticsContentPanel, "main");
                 }
             }
         };
@@ -160,7 +270,6 @@ public class AdminDashboardPanel extends JPanel {
     }
 
     private void reloadSchemes() {
-        // This could also be put in a SwingWorker if loading schemes is slow
         schemeModel.setRowCount(0);
         try {
             List<Scheme> items = new SchemeDAO().listAll();
@@ -196,7 +305,6 @@ public class AdminDashboardPanel extends JPanel {
     private void onEdit() {
         int schemeId = getSelectedSchemeId();
         if (schemeId == -1) return;
-        
         try {
             Scheme selected = new SchemeDAO().findById(schemeId);
             if(selected == null) {
@@ -209,10 +317,8 @@ public class AdminDashboardPanel extends JPanel {
             form.description.setText(selected.getDescription());
             form.eligibility.setText(selected.getEligibility());
             form.active.setSelected(selected.isActive());
-            
             int res = JOptionPane.showConfirmDialog(this, form.panel, "Edit Scheme", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
             if (res != JOptionPane.OK_OPTION) return;
-
             new SchemeDAO().update(selected.getId(), form.name.getText().trim(), form.category.getText().trim(), form.description.getText(), form.eligibility.getText(), form.active.isSelected());
             reloadSchemes();
         } catch (Exception ex) {
@@ -224,10 +330,8 @@ public class AdminDashboardPanel extends JPanel {
         int schemeId = getSelectedSchemeId();
         if (schemeId == -1) return;
         String schemeName = (String) schemeModel.getValueAt(schemeTable.getSelectedRow(), 1);
-
         int res = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete \"" + schemeName + "\"?", "Confirm Deletion", JOptionPane.YES_NO_OPTION);
         if (res != JOptionPane.YES_OPTION) return;
-
         try {
             new SchemeDAO().delete(schemeId);
             reloadSchemes();
@@ -236,24 +340,6 @@ public class AdminDashboardPanel extends JPanel {
         }
     }
     
-    private void onExport() {
-        JFileChooser fc = new JFileChooser();
-        if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-        File file = fc.getSelectedFile();
-        try (FileWriter fw = new FileWriter(file)) {
-            fw.write("id,name,category,active\n");
-            for (int i = 0; i < schemeModel.getRowCount(); i++) {
-                fw.write(schemeModel.getValueAt(i,0) + "," + 
-                         ((String)schemeModel.getValueAt(i,1)).replace(","," ") + "," + 
-                         schemeModel.getValueAt(i,2) + "," + 
-                         ((Boolean)schemeModel.getValueAt(i,3)?"1":"0") + "\n");
-            }
-            JOptionPane.showMessageDialog(this, "Exported");
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
     static class SchemeForm {
         final JPanel panel = new JPanel(new GridBagLayout());
         final JTextField name = new JTextField(30);
@@ -269,7 +355,6 @@ public class AdminDashboardPanel extends JPanel {
             gbc.anchor = GridBagConstraints.WEST;
             gbc.fill = GridBagConstraints.HORIZONTAL;
             gbc.gridx = 0;
-            
             gbc.gridy = 0; panel.add(new JLabel("Name:"), gbc);
             gbc.gridy = 1; panel.add(name, gbc);
             gbc.gridy = 2; panel.add(new JLabel("Category:"), gbc);

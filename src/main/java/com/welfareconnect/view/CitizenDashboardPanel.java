@@ -1,6 +1,6 @@
 package com.welfareconnect.view;
 
-import java.awt.BorderLayout;
+import java.awt.BorderLayout; // Using wildcard to import all models
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -39,29 +39,34 @@ import com.welfareconnect.model.ApplicationDAO;
 import com.welfareconnect.model.DocumentDAO;
 import com.welfareconnect.model.Scheme;
 import com.welfareconnect.model.SchemeDAO;
+import com.welfareconnect.model.User;
 import com.welfareconnect.model.UserDAO;
 import com.welfareconnect.util.FileStorage;
 import com.welfareconnect.view.customcomponents.SchemeCellRenderer;
 
 public class CitizenDashboardPanel extends JPanel {
+    // Fields for Discover Tab
     private final DefaultListModel<Scheme> schemeListModel = new DefaultListModel<>();
     private final JList<Scheme> schemeList = new JList<>(schemeListModel);
     private final JTextField searchField = new JTextField(24);
     private final JComboBox<String> categoryBox = new JComboBox<>(new String[]{"All", "Education", "Agriculture", "Senior", "General"});
-
-    private final String[] cols = {"ID", "Scheme", "Status", "Updated"};
-    private final DefaultTableModel appsModel = new DefaultTableModel(cols, 0) {
-        public boolean isCellEditable(int r, int c) {
-            return false;
-        }
-    };
-    private final JTable appsTable = new JTable(appsModel);
-
     private final JButton detailsBtn = new JButton("View Details");
     private final JButton applyBtn = new JButton("Apply Now");
 
+    // Fields for My Applications Tab
+    private final String[] cols = {"ID", "Scheme", "Status", "Updated"};
+    private final DefaultTableModel appsModel = new DefaultTableModel(cols, 0) {
+        public boolean isCellEditable(int r, int c) { return false; }
+    };
+    private final JTable appsTable = new JTable(appsModel);
+
+    // Fields for Loading Indicators
     private final JPanel discoverContentPanel = new JPanel(new CardLayout());
     private final JPanel appsContentPanel = new JPanel(new CardLayout());
+
+    // Fields for My Profile Tab
+    private final JTextField emailField = new JTextField();
+    private final JTextField phoneField = new JTextField();
 
     public CitizenDashboardPanel(String userIdentifier) {
         setLayout(new BorderLayout());
@@ -98,7 +103,6 @@ public class CitizenDashboardPanel extends JPanel {
         });
         JScrollPane schemeScrollPane = new JScrollPane(schemeList);
         schemeScrollPane.setBorder(BorderFactory.createEmptyBorder());
-        
         JPanel discoverLoadingPanel = new JPanel(new GridBagLayout());
         discoverLoadingPanel.add(new JLabel("Loading available schemes..."));
         discoverContentPanel.add(schemeScrollPane, "main");
@@ -127,18 +131,20 @@ public class CitizenDashboardPanel extends JPanel {
         gbc.gridx = 0; gbc.gridy = 1; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0.0;
         profilePanel.add(new JLabel("Email:"), gbc);
         gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-        JTextField emailField = new JTextField(); profilePanel.add(emailField, gbc);
+        profilePanel.add(emailField, gbc);
         gbc.gridx = 0; gbc.gridy = 2; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0.0;
         profilePanel.add(new JLabel("Phone:"), gbc);
         gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-        JTextField phoneField = new JTextField(); profilePanel.add(phoneField, gbc);
+        profilePanel.add(phoneField, gbc);
         JPanel profileButtonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton saveButton = new JButton("Save Changes");
         JButton changePwButton = new JButton("Change Password");
-        profileButtonsPanel.add(saveButton); profileButtonsPanel.add(changePwButton);
+        profileButtonsPanel.add(saveButton);
+        profileButtonsPanel.add(changePwButton);
         gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2; gbc.anchor = GridBagConstraints.EAST;
         profilePanel.add(profileButtonsPanel, gbc);
         changePwButton.addActionListener(e -> new ChangePasswordDialog(SwingUtilities.getWindowAncestor(this), getUserIdentifier()).setVisible(true));
+        saveButton.addActionListener(e -> onSaveProfile());
         JPanel profileContainer = new JPanel(new BorderLayout());
         profileContainer.add(profilePanel, BorderLayout.NORTH);
         tabs.addTab("My Profile", profileContainer);
@@ -151,13 +157,71 @@ public class CitizenDashboardPanel extends JPanel {
         detailsBtn.addActionListener(e -> showSelectedDetails());
         applyBtn.addActionListener(e -> onApply());
         tabs.addChangeListener(e -> {
-            if (tabs.getSelectedIndex() == 1) {
+            if (tabs.getSelectedIndex() == 1) { // My Applications
                 reloadApplications();
+            } else if (tabs.getSelectedIndex() == 2) { // My Profile
+                loadProfileData();
             }
         });
 
+        // Initial data load
         reloadSchemes();
         reloadApplications();
+        loadProfileData();
+    }
+
+    private void loadProfileData() {
+        SwingWorker<User, Void> worker = new SwingWorker<>() {
+            @Override
+            protected User doInBackground() throws Exception {
+                return new UserDAO().findByIdentifier(getUserIdentifier());
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    User user = get();
+                    if (user != null) {
+                        emailField.setText(user.getEmail());
+                        phoneField.setText(user.getPhone());
+                    }
+                } catch (Exception ex) {
+                    // Fail silently, fields will just remain empty
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    private void onSaveProfile() {
+        String email = emailField.getText().trim();
+        String phone = phoneField.getText().trim();
+
+        if (email.isEmpty() || !email.contains("@")) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address.", "Invalid Input", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+                return new UserDAO().updateProfile(getUserIdentifier(), email, phone);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    if (get()) {
+                        JOptionPane.showMessageDialog(CitizenDashboardPanel.this, "Profile updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    } else {
+                        JOptionPane.showMessageDialog(CitizenDashboardPanel.this, "Failed to update profile.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(CitizenDashboardPanel.this, "An error occurred: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
     }
 
     private void reloadSchemes() {
@@ -168,6 +232,7 @@ public class CitizenDashboardPanel extends JPanel {
             protected List<Scheme> doInBackground() throws Exception {
                 return new SchemeDAO().listActive(searchField.getText().trim(), (String) categoryBox.getSelectedItem());
             }
+
             @Override
             protected void done() {
                 try {
@@ -195,6 +260,7 @@ public class CitizenDashboardPanel extends JPanel {
                 }
                 return new ApplicationDAO().listByUser(userId);
             }
+
             @Override
             protected void done() {
                 try {
@@ -265,7 +331,6 @@ public class CitizenDashboardPanel extends JPanel {
     static class StatusColorRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            // THIS LINE IS FIXED
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             String status = String.valueOf(table.getValueAt(row, 2));
             if (!isSelected) {
