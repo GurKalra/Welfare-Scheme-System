@@ -1,8 +1,10 @@
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/App.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/view/AdminDashboardPanel.java
+/home/gurvansh/app_project/src/main/java/com/welfareconnect/view/customcomponents/SchemeCellRenderer.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/util/AccentTheme.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/view/ChangePasswordDialog.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/view/LoginFrame.java
+/home/gurvansh/app_project/src/main/java/com/welfareconnect/model/Document.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/view/AppFrame.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/view/OfficerDashboardPanel.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/model/DocumentDAO.java
@@ -17,5 +19,6 @@
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/controller/AuthController.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/util/Database.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/model/Scheme.java
+/home/gurvansh/app_project/src/main/java/com/welfareconnect/view/customcomponents/SchemeCardPanel.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/util/I18n.java
 /home/gurvansh/app_project/src/main/java/com/welfareconnect/model/UserDAO.java

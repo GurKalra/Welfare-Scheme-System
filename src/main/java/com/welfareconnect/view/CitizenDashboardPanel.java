@@ -1,79 +1,140 @@
 package com.welfareconnect.view;
 
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
-import java.util.List;
-
-import javax.swing.BorderFactory;
-import javax.swing.DefaultListModel;
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JFileChooser;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTabbedPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
-
+import com.welfareconnect.model.Application;
+import com.welfareconnect.model.ApplicationDAO;
+import com.welfareconnect.model.DocumentDAO;
 import com.welfareconnect.model.Scheme;
 import com.welfareconnect.model.SchemeDAO;
+import com.welfareconnect.model.UserDAO;
+import com.welfareconnect.util.FileStorage;
+import com.welfareconnect.view.customcomponents.SchemeCellRenderer;
+
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 public class CitizenDashboardPanel extends JPanel {
     private final DefaultListModel<Scheme> schemeListModel = new DefaultListModel<>();
     private final JList<Scheme> schemeList = new JList<>(schemeListModel);
     private final JTextField searchField = new JTextField(24);
-    private final JComboBox<String> categoryBox = new JComboBox<>(new String[]{"All","Education","Agriculture","Senior","General"});
+    private final JComboBox<String> categoryBox = new JComboBox<>(new String[]{"All", "Education", "Agriculture", "Senior", "General"});
 
-    private final String[] cols = {"ID","Scheme","Status","Updated"};
-    private final DefaultTableModel appsModel = new DefaultTableModel(cols, 0) { public boolean isCellEditable(int r,int c){return false;}};
+    private final String[] cols = {"ID", "Scheme", "Status", "Updated"};
+    private final DefaultTableModel appsModel = new DefaultTableModel(cols, 0) {
+        public boolean isCellEditable(int r, int c) {
+            return false;
+        }
+    };
     private final JTable appsTable = new JTable(appsModel);
+
+    private final JButton detailsBtn = new JButton("View Details");
+    private final JButton applyBtn = new JButton("Apply Now");
 
     public CitizenDashboardPanel(String userIdentifier) {
         setLayout(new BorderLayout());
         putClientProperty("userIdentifier", userIdentifier);
         JTabbedPane tabs = new JTabbedPane();
 
-        // Discover tab
-        JPanel discover = new JPanel(new BorderLayout());
-        JPanel search = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        // --- Discover Tab ---
+        JPanel discoverTab = new JPanel(new BorderLayout(0, 10));
+        discoverTab.setBorder(new EmptyBorder(10, 10, 10, 10));
+        JPanel topActionPanel = new JPanel(new BorderLayout(10, 5));
+        JPanel searchFilterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        searchField.putClientProperty("JTextField.placeholderText", "Search schemes by name...");
         JButton searchBtn = new JButton("Search");
-        JButton detailsBtn = new JButton("View Details");
-        JButton applyBtn = new JButton("Apply Now");
-        search.add(searchField);
-        search.add(searchBtn);
-        search.add(categoryBox);
-        search.add(detailsBtn);
-        search.add(applyBtn);
-        discover.add(search, BorderLayout.NORTH);
-        discover.add(new JScrollPane(schemeList), BorderLayout.CENTER);
-        tabs.addTab("Discover", discover);
+        searchFilterPanel.add(searchField);
+        searchFilterPanel.add(searchBtn);
+        searchFilterPanel.add(new JLabel("Category:"));
+        searchFilterPanel.add(categoryBox);
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttonsPanel.add(detailsBtn);
+        buttonsPanel.add(applyBtn);
+        topActionPanel.add(searchFilterPanel, BorderLayout.WEST);
+        topActionPanel.add(buttonsPanel, BorderLayout.EAST);
+        discoverTab.add(topActionPanel, BorderLayout.NORTH);
+        schemeList.setCellRenderer(new SchemeCellRenderer());
+        schemeList.setFixedCellHeight(120);
+        detailsBtn.setEnabled(false);
+        applyBtn.setEnabled(false);
+        schemeList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                boolean isSelected = !schemeList.isSelectionEmpty();
+                detailsBtn.setEnabled(isSelected);
+                applyBtn.setEnabled(isSelected);
+            }
+        });
+        JScrollPane scrollPane = new JScrollPane(schemeList);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        discoverTab.add(scrollPane, BorderLayout.CENTER);
+        tabs.addTab("Discover", discoverTab);
 
-        // My Applications tab
+        // --- My Applications Tab ---
         appsTable.setDefaultRenderer(Object.class, new StatusColorRenderer());
         JScrollPane sp = new JScrollPane(appsTable);
         tabs.addTab("My Applications", sp);
 
-        // My Profile tab
-        JPanel profile = new JPanel(new GridLayout(0,2,8,8));
-        profile.setBorder(BorderFactory.createEmptyBorder(12,12,12,12));
-        profile.add(new JLabel("Identifier")); profile.add(new JLabel(userIdentifier));
-        profile.add(new JLabel("Email")); profile.add(new JTextField());
-        profile.add(new JLabel("Phone")); profile.add(new JTextField());
-        JButton save = new JButton("Save Changes");
-        profile.add(save);
-        JButton changePw = new JButton("Change Password");
-        profile.add(changePw);
-        changePw.addActionListener(e -> new ChangePasswordDialog(javax.swing.SwingUtilities.getWindowAncestor(this), getUserIdentifier()).setVisible(true));
-        tabs.addTab("My Profile", profile);
+        // --- My Profile Tab (Rebuilt with GridBagLayout) ---
+        JPanel profilePanel = new JPanel(new GridBagLayout());
+        profilePanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        // Row 0: Identifier
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        profilePanel.add(new JLabel("Identifier:"), gbc);
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        profilePanel.add(new JLabel(userIdentifier), gbc);
+
+        // Row 1: Email
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0.0;
+        profilePanel.add(new JLabel("Email:"), gbc);
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        JTextField emailField = new JTextField();
+        profilePanel.add(emailField, gbc);
+
+        // Row 2: Phone
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.weightx = 0.0;
+        profilePanel.add(new JLabel("Phone:"), gbc);
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        JTextField phoneField = new JTextField();
+        profilePanel.add(phoneField, gbc);
+
+        // Row 3: Buttons
+        JPanel profileButtonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton saveButton = new JButton("Save Changes");
+        JButton changePwButton = new JButton("Change Password");
+        profileButtonsPanel.add(saveButton);
+        profileButtonsPanel.add(changePwButton);
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.EAST;
+        profilePanel.add(profileButtonsPanel, gbc);
+        changePwButton.addActionListener(e -> new ChangePasswordDialog(SwingUtilities.getWindowAncestor(this), getUserIdentifier()).setVisible(true));
+        
+        JPanel profileContainer = new JPanel(new BorderLayout());
+        profileContainer.add(profilePanel, BorderLayout.NORTH);
+        tabs.addTab("My Profile", profileContainer);
 
         add(tabs, BorderLayout.CENTER);
 
@@ -81,6 +142,7 @@ public class CitizenDashboardPanel extends JPanel {
         reloadSchemes();
         reloadApplications();
         searchBtn.addActionListener(e -> reloadSchemes());
+        categoryBox.addActionListener(e -> reloadSchemes());
         detailsBtn.addActionListener(e -> showSelectedDetails());
         applyBtn.addActionListener(e -> onApply());
     }
@@ -89,7 +151,7 @@ public class CitizenDashboardPanel extends JPanel {
         schemeListModel.clear();
         try {
             List<Scheme> items = new SchemeDAO().listActive(searchField.getText().trim(), (String) categoryBox.getSelectedItem());
-            for (Scheme s : items) schemeListModel.addElement(s);
+            schemeListModel.addAll(items);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
@@ -97,10 +159,8 @@ public class CitizenDashboardPanel extends JPanel {
 
     private void showSelectedDetails() {
         Scheme s = schemeList.getSelectedValue();
-        if (s == null) {
-            JOptionPane.showMessageDialog(this, "Select a scheme first");
-            return;
-        }
+        if (s == null) return;
+        
         JTextArea text = new JTextArea();
         text.setEditable(false);
         text.setLineWrap(true);
@@ -113,39 +173,39 @@ public class CitizenDashboardPanel extends JPanel {
 
     private void onApply() {
         Scheme s = schemeList.getSelectedValue();
-        if (s == null) {
-            JOptionPane.showMessageDialog(this, "Select a scheme first");
-            return;
-        }
+        if (s == null) return;
+
         JFileChooser fc = new JFileChooser();
         fc.setMultiSelectionEnabled(true);
-        int ch = fc.showOpenDialog(this);
-        if (ch != JFileChooser.APPROVE_OPTION) return;
+        if (fc.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
         int confirm = JOptionPane.showConfirmDialog(this, "Apply to: " + s.getName() + " with " + fc.getSelectedFiles().length + " attachment(s)?", "Confirm", JOptionPane.OK_CANCEL_OPTION);
         if (confirm != JOptionPane.OK_OPTION) return;
+
         try {
-            Integer userId = new com.welfareconnect.model.UserDAO().findIdByIdentifier(getUserIdentifier());
+            Integer userId = new UserDAO().findIdByIdentifier(getUserIdentifier());
             if (userId == null) {
                 JOptionPane.showMessageDialog(this, "User not found", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            boolean ok = new com.welfareconnect.model.ApplicationDAO().create(userId, s.getId());
-            if (!ok) {
+
+            // OPTIMIZED: Assumes create() returns the new application ID.
+            int newAppId = new ApplicationDAO().create(userId, s.getId());
+            if (newAppId == -1) {
                 JOptionPane.showMessageDialog(this, "Failed to submit application", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            // Fetch latest application id for this user+scheme
-            java.util.List<com.welfareconnect.model.Application> apps = new com.welfareconnect.model.ApplicationDAO().listByUser(userId);
-            int appId = apps.isEmpty() ? -1 : apps.get(0).getId();
-            for (java.io.File f : fc.getSelectedFiles()) {
-                String stored = com.welfareconnect.util.FileStorage.store(f);
-                String ct = java.nio.file.Files.probeContentType(java.nio.file.Path.of(stored));
-                new com.welfareconnect.model.DocumentDAO().add(appId, f.getName(), ct, stored);
+
+            for (File f : fc.getSelectedFiles()) {
+                String stored = FileStorage.store(f);
+                String ct = Files.probeContentType(Path.of(stored));
+                new DocumentDAO().add(newAppId, f.getName(), ct, stored);
             }
+
             JOptionPane.showMessageDialog(this, "Your application has been submitted with care! 🌱");
             reloadApplications();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Error during application: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -157,10 +217,11 @@ public class CitizenDashboardPanel extends JPanel {
     private void reloadApplications() {
         appsModel.setRowCount(0);
         try {
-            Integer userId = new com.welfareconnect.model.UserDAO().findIdByIdentifier(getUserIdentifier());
+            Integer userId = new UserDAO().findIdByIdentifier(getUserIdentifier());
             if (userId == null) return;
-            java.util.List<com.welfareconnect.model.Application> items = new com.welfareconnect.model.ApplicationDAO().listByUser(userId);
-            for (com.welfareconnect.model.Application a : items) {
+
+            List<Application> items = new ApplicationDAO().listByUser(userId);
+            for (Application a : items) {
                 appsModel.addRow(new Object[]{a.getId(), a.getSchemeName(), a.getStatus(), a.getUpdatedAt()});
             }
         } catch (Exception ex) {
@@ -170,14 +231,24 @@ public class CitizenDashboardPanel extends JPanel {
 
     static class StatusColorRenderer extends DefaultTableCellRenderer {
         @Override
-        public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            java.awt.Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             String status = String.valueOf(table.getValueAt(row, 2));
             if (!isSelected) {
-                if ("Approved".equalsIgnoreCase(status)) c.setBackground(new Color(200, 230, 201));
-                else if ("Rejected".equalsIgnoreCase(status)) c.setBackground(new Color(255, 205, 210));
-                else if ("More Info Required".equalsIgnoreCase(status)) c.setBackground(new Color(187, 222, 251));
-                else c.setBackground(new Color(255, 249, 196)); // Pending
+                switch (status.toLowerCase()) {
+                    case "approved":
+                        c.setBackground(new Color(200, 230, 201)); // Green
+                        break;
+                    case "rejected":
+                        c.setBackground(new Color(255, 205, 210)); // Red
+                        break;
+                    case "more info required":
+                        c.setBackground(new Color(187, 222, 251)); // Blue
+                        break;
+                    default: // Pending
+                        c.setBackground(new Color(255, 249, 196)); // Yellow
+                        break;
+                }
             }
             return c;
         }

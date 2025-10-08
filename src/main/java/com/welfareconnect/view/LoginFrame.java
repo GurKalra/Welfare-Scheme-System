@@ -1,14 +1,37 @@
 package com.welfareconnect.view;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Cursor;
+import java.awt.Dimension; // You will need to add the MigLayout library
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.Timer;
+
 import com.formdev.flatlaf.ui.FlatRoundBorder;
 import com.welfareconnect.controller.AuthController;
 import com.welfareconnect.util.I18n;
-import net.miginfocom.swing.MigLayout; // You will need to add the MigLayout library
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import net.miginfocom.swing.MigLayout;
 
 public class LoginFrame extends JFrame {
     private final JComboBox<String> roleCombo = new JComboBox<>(new String[]{I18n.t("login.citizen"), I18n.t("login.officer"), I18n.t("login.admin")});
@@ -113,7 +136,7 @@ public class LoginFrame extends JFrame {
     private void updateIdentifierPlaceholder() {
         String hint;
         int idx = subRoleCombo.getSelectedIndex();
-        if (idx == 0) hint = "Student ID";
+        if (idx == 0) hint = "Enter ID";
         else if (idx == 1) hint = "Farmer Permit Number";
         else if (idx == 2) hint = "Senior Citizen ID";
         else hint = "Aadhaar Number";
