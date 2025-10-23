@@ -2,8 +2,10 @@ package com.welfareconnect.view;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Color; // Import
 import java.awt.Desktop;
 import java.awt.FlowLayout;
+import java.awt.Font; // Import
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -48,9 +50,12 @@ public class OfficerDashboardPanel extends JPanel {
     private final JButton moreInfoButton = new JButton("Request Info");
     private final JButton openDocButton = new JButton("View Document");
 
-    // NEW: Panels for managing loading state with CardLayout
+    // Panels for managing loading state with CardLayout
     private final JPanel contentPanel = new JPanel(new CardLayout());
     private final JPanel loadingPanel = new JPanel(new GridBagLayout());
+
+    // --- NEW: CardLayout panel for the right side ---
+    private final JPanel reviewCardPanel = new JPanel(new CardLayout());
 
     public OfficerDashboardPanel() {
         setLayout(new BorderLayout()); // Main panel uses BorderLayout
@@ -91,6 +96,7 @@ public class OfficerDashboardPanel extends JPanel {
         reloadQueue();
     }
     
+    // --- UPDATED: This method now builds the reviewCardPanel ---
     private JSplitPane createMainPanel() {
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 
@@ -98,6 +104,7 @@ public class OfficerDashboardPanel extends JPanel {
         queuePanel.add(new JScrollPane(queueTable), BorderLayout.CENTER);
         split.setLeftComponent(queuePanel);
 
+        // 1. Create the "review" card (your existing panel)
         JPanel reviewPanel = new JPanel(new BorderLayout(10, 10));
         reviewPanel.setBorder(new TitledBorder("Review Panel"));
 
@@ -128,10 +135,28 @@ public class OfficerDashboardPanel extends JPanel {
         actions.add(rejectButton);
         actions.add(moreInfoButton);
         reviewPanel.add(actions, BorderLayout.SOUTH);
+        
+        // 2. Create the "empty" card
+        JPanel emptyPanel = createEmptyPanel();
 
-        split.setRightComponent(reviewPanel);
+        // 3. Add both cards to the reviewCardPanel
+        reviewCardPanel.add(reviewPanel, "review");
+        reviewCardPanel.add(emptyPanel, "empty");
+
+        // 4. Set the reviewCardPanel as the right component
+        split.setRightComponent(reviewCardPanel);
         split.setDividerLocation(380);
         return split;
+    }
+
+    // --- NEW: Helper method to create the empty state panel ---
+    private JPanel createEmptyPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        JLabel message = new JLabel("Please select an application from the list to review.");
+        message.setFont(message.getFont().deriveFont(Font.ITALIC, 14f));
+        message.setForeground(Color.GRAY);
+        panel.add(message);
+        return panel;
     }
 
     // UPDATED: This method now uses SwingWorker to prevent UI freezing
@@ -140,7 +165,8 @@ public class OfficerDashboardPanel extends JPanel {
         cl.show(contentPanel, "loading"); // Show the loading panel
         setActionsEnabled(false);
         queueModel.setRowCount(0);
-        clearReviewPanel();
+        // --- UPDATED: Show "empty" card on reload ---
+        ((CardLayout) reviewCardPanel.getLayout()).show(reviewCardPanel, "empty");
 
         SwingWorker<List<Application>, Void> worker = new SwingWorker<>() {
             @Override
@@ -174,10 +200,12 @@ public class OfficerDashboardPanel extends JPanel {
         openDocButton.setEnabled(enabled);
     }
 
+    // --- UPDATED: This method now controls the reviewCardPanel ---
     private void populateReviewPanel() {
         int selectedRow = queueTable.getSelectedRow();
         if (selectedRow == -1) {
-            clearReviewPanel();
+            // No selection, show the "empty" card
+            ((CardLayout) reviewCardPanel.getLayout()).show(reviewCardPanel, "empty");
             setActionsEnabled(false);
             return;
         }
@@ -185,10 +213,12 @@ public class OfficerDashboardPanel extends JPanel {
         int appId = (int) queueModel.getValueAt(selectedRow, 0);
         try {
             // NOTE: This is a fast query, so a SwingWorker isn't strictly needed here.
-            // If it were slow, you would use another worker.
             ApplicationDAO appDAO = new ApplicationDAO();
             Application app = appDAO.findById(appId);
             if (app == null) return;
+            
+            // --- UPDATED: Show the "review" card before populating ---
+            ((CardLayout) reviewCardPanel.getLayout()).show(reviewCardPanel, "review");
 
             applicantNameLabel.setText(app.getApplicantName());
             applicantIdLabel.setText(app.getApplicantIdentifier());
@@ -204,12 +234,8 @@ public class OfficerDashboardPanel extends JPanel {
         }
     }
 
-    private void clearReviewPanel() {
-        applicantNameLabel.setText("...");
-        applicantIdLabel.setText("...");
-        schemeDetailsLabel.setText("...");
-        documentListModel.clear();
-    }
+    // --- REMOVED: clearReviewPanel() is no longer needed ---
+    // private void clearReviewPanel() { ... }
 
     private void updateSelectedStatus(String status, String reason) {
         int selectedRow = queueTable.getSelectedRow();

@@ -23,7 +23,6 @@ public class UserDAO {
         }
     }
 
-    // UPDATED: Fetches all fields for the full user object
     public User findByIdentifier(String identifier) throws SQLException {
         String sql = "SELECT id, name, identifier, email, phone, role, active FROM users WHERE identifier=?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
@@ -55,7 +54,6 @@ public class UserDAO {
         }
     }
     
-    // NEW: Gets all users for the admin table
     public List<User> getAllUsers() throws SQLException {
         List<User> users = new ArrayList<>();
         String sql = "SELECT id, name, identifier, email, phone, role, active FROM users ORDER BY name";
@@ -77,7 +75,6 @@ public class UserDAO {
         return users;
     }
 
-    // NEW: Updates a user's role
     public boolean updateUserRole(int userId, String newRole) throws SQLException {
         String sql = "UPDATE users SET role = ? WHERE id = ?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {

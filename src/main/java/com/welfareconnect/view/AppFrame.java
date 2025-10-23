@@ -1,18 +1,33 @@
 package com.welfareconnect.view;
 
+import java.awt.BorderLayout;
+import java.awt.Color;
+
+import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup; // We will create this new class
+import javax.swing.JFrame;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JTabbedPane;
+import javax.swing.LookAndFeel;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.FlatLightLaf;
-import com.welfareconnect.util.AccentTheme; // We will create this new class
+import com.welfareconnect.util.AccentTheme;
 import com.welfareconnect.util.I18n;
-
-import javax.swing.*;
-import java.awt.*;
 
 public class AppFrame extends JFrame {
 
     private final JTabbedPane tabs = new JTabbedPane();
-    private static AccentTheme currentTheme = new AccentTheme(AccentTheme.BLUE); // Default theme
+    private static AccentTheme currentTheme = new AccentTheme(AccentTheme.BLUE);
 
     public AppFrame(String role, String subRole, String displayName) {
         // Apply the theme first, before any components are created

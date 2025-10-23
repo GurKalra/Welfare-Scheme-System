@@ -2,6 +2,7 @@ package com.welfareconnect.view;
 
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -21,13 +22,16 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JToolBar;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
-import org.jfree.chart.plot.PiePlot;
+import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.plot.CategoryPlot;
+import org.jfree.chart.plot.PiePlot; // Import
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.data.general.DefaultPieDataset;
 
@@ -38,13 +42,21 @@ import com.welfareconnect.model.User;
 import com.welfareconnect.model.UserDAO;
 
 public class AdminDashboardPanel extends JPanel {
-    // Fields for JTabbedPane (promoted to a field)
+    // Fields for JTabbedPane
     private final JTabbedPane tabs = new JTabbedPane();
 
     // Fields for Schemes Tab
     private final DefaultTableModel schemeModel = new DefaultTableModel(new String[]{"ID", "Name", "Category", "Active"}, 0) {
         @Override
         public boolean isCellEditable(int row, int column) { return false; }
+
+        @Override
+        public Class<?> getColumnClass(int columnIndex) {
+            if (columnIndex == 3) {
+                return Boolean.class; // This will render as a JCheckBox
+            }
+            return super.getColumnClass(columnIndex);
+        }
     };
     private final JTable schemeTable = new JTable(schemeModel);
     
@@ -60,6 +72,7 @@ public class AdminDashboardPanel extends JPanel {
 
     // Fields for Analytics Tab
     private final JPanel analyticsContentPanel = new JPanel(new CardLayout());
+    private final JPanel pieCardPanel = new JPanel(new CardLayout()); // Panel for pie chart
     private final DefaultPieDataset pieData = new DefaultPieDataset();
     private final DefaultCategoryDataset barData = new DefaultCategoryDataset();
 
@@ -70,17 +83,28 @@ public class AdminDashboardPanel extends JPanel {
         // --- Schemes Tab ---
         JPanel schemesPanel = new JPanel(new BorderLayout(0, 10));
         schemesPanel.add(new JScrollPane(schemeTable), BorderLayout.CENTER);
-        JPanel schemeActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        
+        JToolBar schemeActions = new JToolBar();
+        schemeActions.setFloatable(false);
         JButton addScheme = new JButton("Add");
         JButton editScheme = new JButton("Edit");
         JButton delScheme = new JButton("Delete");
         schemeActions.add(addScheme);
         schemeActions.add(editScheme);
         schemeActions.add(delScheme);
-        schemesPanel.add(schemeActions, BorderLayout.SOUTH);
+        schemesPanel.add(schemeActions, BorderLayout.NORTH); 
+        
         addScheme.addActionListener(e -> onAdd());
         editScheme.addActionListener(e -> onEdit());
         delScheme.addActionListener(e -> onDelete());
+
+        editScheme.setEnabled(false);
+        delScheme.setEnabled(false);
+        schemeTable.getSelectionModel().addListSelectionListener(e -> {
+            boolean isSelected = schemeTable.getSelectedRow() != -1;
+            editScheme.setEnabled(isSelected);
+            delScheme.setEnabled(isSelected);
+        });
 
         // --- Users Tab ---
         JPanel usersPanel = new JPanel(new BorderLayout(0, 10));
@@ -89,16 +113,32 @@ public class AdminDashboardPanel extends JPanel {
         userContentPanel.add(new JScrollPane(userTable), "main");
         userContentPanel.add(userLoadingPanel, "loading");
         usersPanel.add(userContentPanel, BorderLayout.CENTER);
-        JPanel userActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+
+        JToolBar userActions = new JToolBar();
+        userActions.setFloatable(false);
         userActions.add(changeRoleButton);
         userActions.add(toggleStatusButton);
-        usersPanel.add(userActions, BorderLayout.SOUTH);
+        usersPanel.add(userActions, BorderLayout.NORTH); 
+        
         changeRoleButton.addActionListener(e -> onChangeRole());
         toggleStatusButton.addActionListener(e -> onToggleStatus());
+        
         userTable.getSelectionModel().addListSelectionListener(e -> {
-            boolean isSelected = userTable.getSelectedRow() != -1;
+            int selectedRow = userTable.getSelectedRow();
+            boolean isSelected = selectedRow != -1;
             changeRoleButton.setEnabled(isSelected);
             toggleStatusButton.setEnabled(isSelected);
+
+            if (isSelected) {
+                String currentStatus = (String) userModel.getValueAt(selectedRow, 4);
+                if (currentStatus.equals("Active")) {
+                    toggleStatusButton.setText("Disable Account");
+                } else {
+                    toggleStatusButton.setText("Enable Account");
+                }
+            } else {
+                toggleStatusButton.setText("Disable/Enable Account"); // Reset text
+            }
         });
 
         // --- Analytics Tab ---
@@ -113,50 +153,77 @@ public class AdminDashboardPanel extends JPanel {
         filters.add(end);
         filters.add(refresh);
         analyticsPanel.add(filters, BorderLayout.NORTH);
+        
         JPanel analyticsLoadingPanel = new JPanel(new GridBagLayout());
         analyticsLoadingPanel.add(new JLabel("Generating reports, please wait..."));
+        
+        // Pie Chart in a CardLayout
         var pieChart = ChartFactory.createPieChart("Applications by Scheme", pieData, true, true, false);
         ((PiePlot) pieChart.getPlot()).setSimpleLabels(true);
         ChartPanel piePanel = new ChartPanel(pieChart);
+        pieCardPanel.add(piePanel, "chart");
+        pieCardPanel.add(createAnalyticsEmptyPanel("pie"), "empty"); // Add empty panel
+        
+        // Bar Chart Y-Axis set to integers
         var barChart = ChartFactory.createBarChart("Approved vs Rejected", "Month", "Count", barData);
+        CategoryPlot plot = barChart.getCategoryPlot();
+        NumberAxis rangeAxis = (NumberAxis) plot.getRangeAxis();
+        rangeAxis.setStandardTickUnits(NumberAxis.createIntegerTickUnits()); // Force integer ticks
+        
+        // --- THIS IS THE CORRECTED LINE ---
+        rangeAxis.setLowerBound(0.0); // Start Y-axis at 0
+        
         ChartPanel barPanel = new ChartPanel(barChart);
+        
         JPanel chartsPanel = new JPanel(new GridLayout(1, 2, 10, 0));
-        chartsPanel.add(piePanel);
+        chartsPanel.add(pieCardPanel); // Add pieCardPanel
         chartsPanel.add(barPanel);
+        
         analyticsContentPanel.add(chartsPanel, "main");
         analyticsContentPanel.add(analyticsLoadingPanel, "loading");
         analyticsPanel.add(analyticsContentPanel, BorderLayout.CENTER);
         refresh.addActionListener(e -> loadAnalytics(start.getText().trim(), end.getText().trim()));
         
-        // Add all tabs
         tabs.addTab("Schemes", schemesPanel);
         tabs.addTab("Users", usersPanel);
         tabs.addTab("Analytics", analyticsPanel);
 
-        // Add listener to refresh data when a tab is selected
         tabs.addChangeListener(e -> {
             int selectedIndex = tabs.getSelectedIndex();
-            if (selectedIndex == 0) { // Schemes
+            if (selectedIndex == 0) { 
                 reloadSchemes();
-            } else if (selectedIndex == 1) { // Users
+            } else if (selectedIndex == 1) {
                 reloadUsers();
-            } else if (selectedIndex == 2) { // Analytics
+            } else if (selectedIndex == 2) {
                 loadAnalytics(start.getText().trim(), end.getText().trim());
             }
         });
         
         add(tabs, BorderLayout.CENTER);
         
-        // Initial state
         changeRoleButton.setEnabled(false);
         toggleStatusButton.setEnabled(false);
 
-        // Initial data load
         reloadSchemes();
         reloadUsers();
         loadAnalytics(start.getText().trim(), end.getText().trim());
     }
     
+    // Helper method to create an empty panel for charts
+    private JPanel createAnalyticsEmptyPanel(String type) {
+        JPanel p = new JPanel(new GridBagLayout());
+        String message;
+        if (type.equals("pie")) {
+            message = "Not enough data to display a pie chart.";
+        } else {
+            message = "No data for this date range.";
+        }
+        JLabel label = new JLabel("<html><div style='text-align: center;'>" + message + "<br>Select a different date range or wait for new data.</div></html>");
+        label.setForeground(Color.GRAY);
+        p.add(label);
+        return p;
+    }
+
     private void reloadUsers() {
         CardLayout cl = (CardLayout) userContentPanel.getLayout();
         cl.show(userContentPanel, "loading");
@@ -252,8 +319,17 @@ public class AdminDashboardPanel extends JPanel {
                     Map<String, List<?>> results = get();
                     List<ApplicationDAO.SchemeCount> schemeCounts = (List<ApplicationDAO.SchemeCount>) results.get("pieData");
                     List<ApplicationDAO.MonthlyStatus> monthlyStatuses = (List<ApplicationDAO.MonthlyStatus>) results.get("barData");
+                    
+                    // Logic to show pie chart or empty panel
+                    CardLayout pieCL = (CardLayout) pieCardPanel.getLayout();
                     pieData.clear();
-                    for (ApplicationDAO.SchemeCount s : schemeCounts) pieData.setValue(s.schemeName, s.count);
+                    if (schemeCounts.size() <= 1) {
+                        pieCL.show(pieCardPanel, "empty");
+                    } else {
+                        for (ApplicationDAO.SchemeCount s : schemeCounts) pieData.setValue(s.schemeName, s.count);
+                        pieCL.show(pieCardPanel, "chart");
+                    }
+
                     barData.clear();
                     for (ApplicationDAO.MonthlyStatus m : monthlyStatuses) {
                         barData.addValue(m.approved, "Approved", m.yearMonth);
@@ -340,6 +416,7 @@ public class AdminDashboardPanel extends JPanel {
         }
     }
     
+    // No changes needed to the inner SchemeForm class
     static class SchemeForm {
         final JPanel panel = new JPanel(new GridBagLayout());
         final JTextField name = new JTextField(30);

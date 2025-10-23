@@ -3,7 +3,7 @@ package com.welfareconnect.view;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Dimension; // You will need to add the MigLayout library
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GradientPaint;
@@ -26,6 +26,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
+import javax.swing.UIManager; // Added for theme-aware link color
 
 import com.formdev.flatlaf.ui.FlatRoundBorder;
 import com.welfareconnect.controller.AuthController;
@@ -54,17 +55,24 @@ public class LoginFrame extends JFrame {
         // --- The Login Card ---
         // Using MigLayout for a cleaner and more flexible layout
         JPanel card = new JPanel(new MigLayout(
-                "wrap 1, fillx, insets 25 35 25 35", // 1 column, fill horizontally, with padding
+                "wrap 1, fillx, insets 35 45 35 45", // UPDATED: Increased insets for more breathing room
                 "[center]", // Center alignment for the column
-                "[]15[]10[]10[]20[]15[]" // Row constraints with specified gaps
+                "[c]15[]15[]10[]10[]20[]15[]" // UPDATED: Added a row at the top for the logo
         ));
 
         // Use a theme-aware background color instead of hardcoded white
         card.putClientProperty("FlatLaf.style", "background: @panel.background");
         card.setBorder(new FlatRoundBorder());
-        card.setPreferredSize(new Dimension(420, 480)); // Adjusted size
+        card.setPreferredSize(new Dimension(420, 520)); // Adjusted size for logo
 
         // --- Components ---
+
+        // NEW: Logo Placeholder
+        JLabel logoPlaceholder = new JLabel("Your one stop for all schemes.."); // TODO: Replace this with your app's logo
+        logoPlaceholder.setFont(logoPlaceholder.getFont().deriveFont(Font.ITALIC, 16f));
+        logoPlaceholder.setForeground(Color.GRAY);
+        card.add(logoPlaceholder, "growx"); // 'growx' will center it
+
         JLabel title = new JLabel(I18n.t("login.title"), SwingConstants.CENTER);
         title.setFont(title.getFont().deriveFont(Font.BOLD, 24f));
         card.add(title, "growx");
@@ -79,13 +87,14 @@ public class LoginFrame extends JFrame {
         card.add(labeled(I18n.t("login.password"), passwordField), "growx");
 
         JButton signIn = new JButton(I18n.t("login.signin"));
-        signIn.putClientProperty("JButton.buttonType", "roundRect"); // A nice FlatLaf style
+        // UPDATED: This makes it the main, accented button
+        signIn.putClientProperty("JButton.buttonType", "primary"); 
         card.add(signIn, "growx, h 40!"); // Make button taller
 
         JPanel links = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
         links.setOpaque(false);
-        JLabel register = linkLabel(I18n.t("login.register"));
-        JLabel forgot = linkLabel(I18n.t("login.forgot"));
+        JLabel register = linkLabel(I18n.t("login.register")); // Uses new linkLabel method
+        JLabel forgot = linkLabel(I18n.t("login.forgot")); // Uses new linkLabel method
         links.add(register);
         links.add(forgot);
         card.add(links, "growx");
@@ -121,10 +130,26 @@ public class LoginFrame extends JFrame {
         return p;
     }
 
+    // UPDATED: This method now adds a hover effect for the underline
     private JLabel linkLabel(String text) {
-        JLabel l = new JLabel("<html><u>" + text + "</u></html>");
-        l.setForeground(new Color(25, 118, 210));
+        JLabel l = new JLabel(text); // Start without underline
+        // Use the theme's link color for consistency
+        l.setForeground(UIManager.getColor("Component.linkColor")); 
         l.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        l.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                // Add underline on hover
+                l.setText("<html><u>" + text + "</u></html>");
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                // Remove underline when mouse leaves
+                l.setText(text);
+            }
+        });
         return l;
     }
 
@@ -176,6 +201,7 @@ public class LoginFrame extends JFrame {
         new ForgotPasswordDialog(this).setVisible(true);
     }
 
+    // No changes to your nice animated gradient panel
     static class AnimatedGradientPanel extends JPanel {
         private float t = 0f;
         private final Timer timer;

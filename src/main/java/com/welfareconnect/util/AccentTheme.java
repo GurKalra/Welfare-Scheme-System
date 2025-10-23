@@ -1,9 +1,8 @@
 package com.welfareconnect.util;
 
-import com.formdev.flatlaf.FlatLaf;
 import java.awt.Color;
 
-import javax.swing.UIManager;
+import com.formdev.flatlaf.FlatLaf;
 
 public class AccentTheme {
 
@@ -18,18 +17,12 @@ public class AccentTheme {
     }
 
     public void apply() {
-        // These are special keys used by the FlatLaf library to style components.
-        // We are overriding the default values with our chosen accent color.
         FlatLaf.setGlobalExtraDefaults(java.util.Map.of(
             "@accentColor", toHex(accentColor),
             "@accentColor.hover", toHex(accentColor.brighter()),
             "@accentColor.pressed", toHex(accentColor.darker())
         ));
         
-        // You can add more specific overrides here if needed, for example:
-        // UIManager.put("Button.background", accentColor);
-        // UIManager.put("ProgressBar.foreground", accentColor);
-        // UIManager.put("Component.focusColor", accentColor);
     }
 
     private String toHex(Color color) {

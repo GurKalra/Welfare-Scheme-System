@@ -1,12 +1,12 @@
 package com.welfareconnect.view;
 
-import java.awt.BorderLayout; // Using wildcard to import all models
+import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
+import java.awt.GridBagConstraints; // Import
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.io.File;
@@ -74,6 +74,7 @@ public class CitizenDashboardPanel extends JPanel {
         JTabbedPane tabs = new JTabbedPane();
 
         // --- Discover Tab ---
+        // This panel was already well-structured, no changes needed.
         JPanel discoverTab = new JPanel(new BorderLayout(0, 10));
         discoverTab.setBorder(new EmptyBorder(10, 10, 10, 10));
         JPanel topActionPanel = new JPanel(new BorderLayout(10, 5));
@@ -115,8 +116,18 @@ public class CitizenDashboardPanel extends JPanel {
         JScrollPane appsScrollPane = new JScrollPane(appsTable);
         JPanel appsLoadingPanel = new JPanel(new GridBagLayout());
         appsLoadingPanel.add(new JLabel("Loading your applications..."));
+        
+        // --- NEW: EMPTY STATE PANEL ---
+        JPanel appsEmptyPanel = new JPanel(new GridBagLayout());
+        JLabel emptyLabel = new JLabel("You haven't applied for any schemes yet.");
+        emptyLabel.setFont(emptyLabel.getFont().deriveFont(14f));
+        emptyLabel.setForeground(Color.GRAY);
+        appsEmptyPanel.add(emptyLabel);
+        // --- END OF NEW PANEL ---
+        
         appsContentPanel.add(appsScrollPane, "main");
         appsContentPanel.add(appsLoadingPanel, "loading");
+        appsContentPanel.add(appsEmptyPanel, "empty"); // Added the "empty" card
         tabs.addTab("My Applications", appsContentPanel);
 
         // --- My Profile Tab ---
@@ -157,9 +168,9 @@ public class CitizenDashboardPanel extends JPanel {
         detailsBtn.addActionListener(e -> showSelectedDetails());
         applyBtn.addActionListener(e -> onApply());
         tabs.addChangeListener(e -> {
-            if (tabs.getSelectedIndex() == 1) { // My Applications
+            if (tabs.getSelectedIndex() == 1) {
                 reloadApplications();
-            } else if (tabs.getSelectedIndex() == 2) { // My Profile
+            } else if (tabs.getSelectedIndex() == 2) {
                 loadProfileData();
             }
         });
@@ -263,17 +274,24 @@ public class CitizenDashboardPanel extends JPanel {
 
             @Override
             protected void done() {
+                // --- UPDATED LOGIC TO SHOW EMPTY CARD ---
                 try {
                     appsModel.setRowCount(0);
                     List<Application> items = get();
-                    for (Application a : items) {
-                        appsModel.addRow(new Object[]{a.getId(), a.getSchemeName(), a.getStatus(), a.getUpdatedAt()});
+                    
+                    if (items.isEmpty()) {
+                        cl.show(appsContentPanel, "empty"); // Show empty
+                    } else {
+                        for (Application a : items) {
+                            appsModel.addRow(new Object[]{a.getId(), a.getSchemeName(), a.getStatus(), a.getUpdatedAt()});
+                        }
+                        cl.show(appsContentPanel, "main"); // Show main table
                     }
                 } catch (Exception ex) {
                     appsModel.setRowCount(0);
-                } finally {
-                    cl.show(appsContentPanel, "main");
+                    cl.show(appsContentPanel, "empty"); // Show empty on error too
                 }
+                // 'finally' block removed as logic is handled in try/catch
             }
         };
         worker.execute();

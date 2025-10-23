@@ -6,7 +6,6 @@ public class User {
     private final String identifier;
     private final String email;
     private final String phone;
-    // NEW FIELDS
     private final String role;
     private final boolean active;
 

@@ -12,7 +12,6 @@ import com.welfareconnect.util.Database;
 public class DocumentDAO {
 
     public void add(int applicationId, String fileName, String contentType, String storedPath) throws SQLException {
-        // SQL query updated to use file_path
         String sql = "INSERT INTO documents(application_id, file_name, content_type, file_path) VALUES(?,?,?,?)";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, applicationId);
@@ -25,7 +24,6 @@ public class DocumentDAO {
     
     public List<Document> listByApplication(int applicationId) throws SQLException {
         List<Document> list = new ArrayList<>();
-        // SQL query updated to use file_path
         String sql = "SELECT id, application_id, file_name, content_type, file_path FROM documents WHERE application_id = ?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setInt(1, applicationId);
@@ -36,7 +34,7 @@ public class DocumentDAO {
                         rs.getInt("application_id"),
                         rs.getString("file_name"),
                         rs.getString("content_type"),
-                        rs.getString("file_path") // Updated column name
+                        rs.getString("file_path") 
                     ));
                 }
             }

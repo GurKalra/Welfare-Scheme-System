@@ -1,14 +1,18 @@
 package com.welfareconnect.view.customcomponents;
 
-// IMPORT STATEMENTS ADDED HERE
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Cursor; // Import
 import java.awt.Font;
+import java.awt.event.MouseAdapter; // Import
+import java.awt.event.MouseEvent; // Import
 
 import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
+import javax.swing.UIManager; // Import
+import javax.swing.border.Border; // Import
 import javax.swing.border.EmptyBorder;
 
 import com.welfareconnect.model.Scheme;
@@ -18,13 +22,43 @@ public class SchemeCardPanel extends JPanel {
     private JTextArea schemeDescriptionArea;
     private JLabel categoryLabel;
 
+    // Store original and hover borders
+    private final Border originalBorder;
+    private final Border hoverBorder;
+
     public SchemeCardPanel() {
         setLayout(new BorderLayout(10, 5));
-        setBorder(BorderFactory.createCompoundBorder(
+        
+        // --- UPDATED BORDERS ---
+        EmptyBorder padding = new EmptyBorder(10, 15, 10, 15);
+        originalBorder = BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(Color.LIGHT_GRAY, 1, true),
-                new EmptyBorder(10, 15, 10, 15)
-        ));
+                padding
+        );
+        // Use a theme-aware color for the hover
+        hoverBorder = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UIManager.getColor("Component.focusColor"), 1, true),
+                padding
+        );
+
+        setBorder(originalBorder);
         setBackground(Color.WHITE);
+        
+        // --- ADDED HOVER LISTENER ---
+        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                setBorder(hoverBorder);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                setBorder(originalBorder);
+            }
+        });
+        // --- END OF UPDATES ---
+
 
         schemeTitleLabel = new JLabel("Scheme Title Here");
         schemeTitleLabel.setFont(new Font("SansSerif", Font.BOLD, 16));

@@ -12,7 +12,6 @@ import com.welfareconnect.util.Database;
 
 public class ApplicationDAO {
     
-    // THIS METHOD IS NOW FIXED
     public int create(int userId, int schemeId) throws SQLException {
         String sql = "INSERT INTO applications(user_id, scheme_id, status) VALUES(?,?,'Pending')";
         try (Connection c = Database.getConnection();
@@ -22,11 +21,11 @@ public class ApplicationDAO {
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return rs.getInt(1); // Return the new ID
+                    return rs.getInt(1);
                 }
             }
         }
-        return -1; // Return -1 on failure
+        return -1; 
     }
 
     public Application findById(int appId) throws SQLException {
@@ -82,7 +81,6 @@ public class ApplicationDAO {
         }
     }
     
-    // ... rest of the file is unchanged ...
     public boolean updateStatus(int appId, String status, String reason) throws SQLException {
         String sql = "UPDATE applications SET status=?, reason=?, updated_at=datetime('now') WHERE id=?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
