@@ -24,12 +24,12 @@ public class UserDAO {
     }
 
     public User findByIdentifier(String identifier) throws SQLException {
-        String sql = "SELECT id, name, identifier, email, phone, role, active FROM users WHERE identifier=?";
+        String sql = "SELECT id, name, identifier, email, phone, role, active, sub_role, region, annualIncome FROM users WHERE identifier=?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, identifier);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new User(
+                    User user = new User(
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("identifier"),
@@ -38,18 +38,24 @@ public class UserDAO {
                         rs.getString("role"),
                         rs.getInt("active") == 1
                     );
+                    user.setSubRole(rs.getString("sub_role"));
+                    user.setRegion(rs.getString("region"));
+                    user.setAnnualIncome(rs.getString("annualIncome"));
+                    return user;
                 }
                 return null;
             }
         }
     }
-    
-    public boolean updateProfile(String identifier, String email, String phone) throws SQLException {
-        String sql = "UPDATE users SET email = ?, phone = ? WHERE identifier = ?";
+
+    public boolean updateProfile(String identifier, String email, String phone, String region, String annualIncome) throws SQLException {
+        String sql = "UPDATE users SET email = ?, phone = ?, region = ?, annualIncome = ? WHERE identifier = ?";
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, email);
             ps.setString(2, phone);
-            ps.setString(3, identifier);
+            ps.setString(3, region);
+            ps.setString(4, annualIncome);
+            ps.setString(5, identifier);
             return ps.executeUpdate() == 1;
         }
     }

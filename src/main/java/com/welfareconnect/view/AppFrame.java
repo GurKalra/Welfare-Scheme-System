@@ -43,7 +43,7 @@ public class AppFrame extends JFrame {
         if ("Citizen".equalsIgnoreCase(role)) {
             tabs.addTab("Citizen", new CitizenDashboardPanel(displayName));
         } else if ("Officer".equalsIgnoreCase(role)) {
-            tabs.addTab("Officer", new OfficerDashboardPanel());
+            tabs.addTab("Officer", new OfficerDashboardPanel(displayName));
         } else if ("Admin".equalsIgnoreCase(role)) {
             tabs.addTab("Admin", new AdminDashboardPanel());
         }

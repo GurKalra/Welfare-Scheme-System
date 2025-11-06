@@ -29,6 +29,7 @@ import com.welfareconnect.model.Application;
 import com.welfareconnect.model.ApplicationDAO;
 import com.welfareconnect.model.Document;
 import com.welfareconnect.model.DocumentDAO;
+import com.welfareconnect.model.UserDAO;
 
 public class OfficerDashboardPanel extends JPanel {
     private final DefaultTableModel queueModel = new DefaultTableModel(new String[]{"App ID", "Applicant", "Scheme", "Submitted"}, 0) {
@@ -49,6 +50,8 @@ public class OfficerDashboardPanel extends JPanel {
     private final JButton rejectButton = new JButton("Reject");
     private final JButton moreInfoButton = new JButton("Request Info");
     private final JButton openDocButton = new JButton("View Document");
+    
+    private String officerIdentifier;
 
     // Panels for managing loading state with CardLayout
     private final JPanel contentPanel = new JPanel(new CardLayout());
@@ -57,7 +60,8 @@ public class OfficerDashboardPanel extends JPanel {
     // --- NEW: CardLayout panel for the right side ---
     private final JPanel reviewCardPanel = new JPanel(new CardLayout());
 
-    public OfficerDashboardPanel() {
+    public OfficerDashboardPanel(String officerIdentifier) {
+        this.officerIdentifier = officerIdentifier;
         setLayout(new BorderLayout()); // Main panel uses BorderLayout
 
         // 1. Create the loading panel and center its content
@@ -86,10 +90,7 @@ public class OfficerDashboardPanel extends JPanel {
             String reason = JOptionPane.showInputDialog(this, "Reason for rejection:");
             if (reason != null && !reason.trim().isEmpty()) updateSelectedStatus("Rejected", reason);
         });
-        moreInfoButton.addActionListener(e -> {
-            String msg = JOptionPane.showInputDialog(this, "Message to citizen requesting more info:");
-            if (msg != null && !msg.trim().isEmpty()) updateSelectedStatus("More Info Required", msg);
-        });
+        moreInfoButton.addActionListener(e -> onRequestMoreInfo());
         openDocButton.addActionListener(e -> openSelectedDoc());
 
         // Initial data load
@@ -265,6 +266,37 @@ public class OfficerDashboardPanel extends JPanel {
             Desktop.getDesktop().open(new File(selectedDoc.getFilePath()));
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Could not open file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    private void onRequestMoreInfo() {
+        int selectedRow = queueTable.getSelectedRow();
+        if (selectedRow == -1) return;
+        int appId = (int) queueModel.getValueAt(selectedRow, 0);
+        
+        String message = JOptionPane.showInputDialog(this, 
+            "Please enter the reason for your request:", 
+            "Request More Information", 
+            JOptionPane.PLAIN_MESSAGE);
+        
+        if (message != null && !message.trim().isEmpty()) {
+            try {
+                Integer officerId = new UserDAO().findIdByIdentifier(officerIdentifier);
+                if (officerId == null) {
+                    JOptionPane.showMessageDialog(this, "Officer not found", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                boolean ok = new ApplicationDAO().requestMoreInfo(appId, officerId, message);
+                if (ok) {
+                    JOptionPane.showMessageDialog(this, "Information request sent successfully!");
+                    reloadQueue();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to send request", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }

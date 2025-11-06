@@ -42,6 +42,8 @@ public final class Database {
                     "password_hash TEXT NOT NULL," +
                     "security_question TEXT," +
                     "security_answer_hash TEXT," +
+                    "region TEXT," +
+                    "annualIncome TEXT," +
                     "active INTEGER NOT NULL DEFAULT 1" +
                     ")");
             st.executeUpdate("CREATE INDEX IF NOT EXISTS idx_users_identifier ON users(identifier)");

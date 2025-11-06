@@ -1,3 +1,4 @@
+com/welfareconnect/view/CitizenDashboardPanel$6.class
 com/welfareconnect/view/LoginFrame$1.class
 com/welfareconnect/model/ApplicationDAO.class
 com/welfareconnect/view/customcomponents/SchemeCellRenderer.class
@@ -16,6 +17,7 @@ com/welfareconnect/view/LoginFrame$AnimatedGradientPanel.class
 com/welfareconnect/view/RegistrationDialog$SimpleDocumentListener.class
 com/welfareconnect/model/DocumentDAO.class
 com/welfareconnect/view/OfficerDashboardPanel$2.class
+com/welfareconnect/view/CitizenDashboardPanel$9.class
 com/welfareconnect/view/ForgotPasswordDialog.class
 com/welfareconnect/view/AdminDashboardPanel$SchemeForm.class
 com/welfareconnect/view/LoginFrame$2.class
@@ -29,17 +31,23 @@ com/welfareconnect/view/CitizenDashboardPanel$1.class
 com/welfareconnect/view/CitizenDashboardPanel$StatusColorRenderer.class
 com/welfareconnect/view/AdminDashboardPanel$4.class
 com/welfareconnect/model/Scheme.class
+com/welfareconnect/view/ApplicationFormDialog$1.class
 com/welfareconnect/view/CitizenDashboardPanel.class
 com/welfareconnect/view/LoginFrame$3.class
 com/welfareconnect/model/ApplicationDAO$MonthlyStatus.class
+com/welfareconnect/view/CitizenDashboardPanel$8.class
 com/welfareconnect/model/ApplicationDAO$SchemeCount.class
 com/welfareconnect/model/UserDAO.class
+com/welfareconnect/view/CitizenDashboardPanel$7.class
+com/welfareconnect/view/ApplicationFormDialog.class
 com/welfareconnect/view/RegistrationDialog$1.class
+com/welfareconnect/model/Notification.class
 com/welfareconnect/util/I18n.class
 com/welfareconnect/view/AdminDashboardPanel$1.class
 com/welfareconnect/util/FileStorage.class
 com/welfareconnect/controller/AuthController.class
 com/welfareconnect/util/AccentTheme.class
+com/welfareconnect/model/NotificationDAO.class
 com/welfareconnect/util/PasswordUtil.class
 com/welfareconnect/view/CitizenDashboardPanel$4.class
 com/welfareconnect/model/User.class

@@ -11,9 +11,9 @@ import java.util.List;
 import com.welfareconnect.util.Database;
 
 public class ApplicationDAO {
-    
     public int create(int userId, int schemeId) throws SQLException {
         String sql = "INSERT INTO applications(user_id, scheme_id, status) VALUES(?,?,'Pending')";
+        int newAppId = -1;
         try (Connection c = Database.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, userId);
@@ -21,11 +21,31 @@ public class ApplicationDAO {
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
-                    return rs.getInt(1);
+                    newAppId = rs.getInt(1);
                 }
             }
         }
-        return -1; 
+        
+        // Notify all officers about new application
+        if (newAppId != -1) {
+            try {
+                Application app = findById(newAppId);
+                if (app != null) {
+                    String message = "New application for '" + app.getSchemeName() + "' has been submitted by " + app.getApplicantName();
+                    List<User> officers = new UserDAO().getAllUsers();
+                    NotificationDAO notificationDAO = new NotificationDAO();
+                    for (User officer : officers) {
+                        if ("Officer".equalsIgnoreCase(officer.getRole())) {
+                            notificationDAO.createNotification(officer.getId(), message, newAppId);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        return newAppId;
     }
 
     public Application findById(int appId) throws SQLException {
@@ -80,15 +100,39 @@ public class ApplicationDAO {
             return list;
         }
     }
-    
+
     public boolean updateStatus(int appId, String status, String reason) throws SQLException {
         String sql = "UPDATE applications SET status=?, reason=?, updated_at=datetime('now') WHERE id=?";
+        boolean success = false;
         try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, status);
             ps.setString(2, reason);
             ps.setInt(3, appId);
-            return ps.executeUpdate() == 1;
+            success = ps.executeUpdate() == 1;
         }
+        
+        // Trigger notification for citizen
+        if (success) {
+            try {
+                Application app = findById(appId);
+                if (app != null) {
+                    String message = "Your application for '" + app.getSchemeName() + "' has been " + status;
+                    if (reason != null && !reason.isEmpty()) {
+                        message += ". Reason: " + reason;
+                    }
+                    new NotificationDAO().createNotification(app.getUserId(), message, appId);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
+        return success;
+    }
+    
+    public boolean requestMoreInfo(int appId, int officerId, String message) throws SQLException {
+        // Update status to "More Info Required"
+        return updateStatus(appId, "More Info Required", message);
     }
 
     public List<SchemeCount> applicationsByScheme(String startDate, String endDate) throws SQLException {
